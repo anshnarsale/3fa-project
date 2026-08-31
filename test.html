@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head><title>Eval Test</title></head>
+<body>
+<h1 id="result">Testing...</h1>
+<script>
+  try {
+    eval("document.getElementById('result').innerText = 'Eval works fine'");
+  } catch (e) {
+    document.getElementById('result').innerText = 'Eval blocked: ' + e.message;
+  }
+</script>
+</body>
+</html>
