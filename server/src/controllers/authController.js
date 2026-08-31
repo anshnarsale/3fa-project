@@ -15,8 +15,28 @@ const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME_MS = 15 * 60 * 1000; // 15 minutes
 
 const rpName = '3FA Project';
-const rpID = 'localhost';
-const origin = 'http://localhost:5173'; // Vite default frontend port
+const frontendOrigin = process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173';
+const isProduction = process.env.NODE_ENV === 'production' || frontendOrigin.startsWith('https://');
+
+function getWebAuthnConfig(req) {
+  const requestOrigin = req.headers.origin || frontendOrigin;
+
+  let origin = requestOrigin;
+  if (!origin.startsWith('http://') && !origin.startsWith('https://')) {
+    origin = frontendOrigin;
+  }
+
+  let rpID = process.env.WEBAUTHN_RP_ID;
+  if (!rpID) {
+    try {
+      rpID = new URL(origin).hostname;
+    } catch (err) {
+      rpID = 'localhost';
+    }
+  }
+
+  return { origin, rpID };
+}
 
 // temp in-memory store for challenges (fine for dev/demo, swap for DB/session in production)
 const challengeStore = {};
@@ -277,9 +297,11 @@ async function generateWebauthnRegistration(req, res) {
       [userId]
     );
 
+    const { origin: requestOrigin, rpID: currentRpID } = getWebAuthnConfig(req);
+
     const options = await generateRegistrationOptions({
       rpName,
-      rpID,
+      rpID: currentRpID,
       userName: user.email,
       attestationType: 'none',
       excludeCredentials: existingCreds.rows.map(cred => ({
@@ -313,11 +335,13 @@ async function verifyWebauthnRegistration(req, res) {
       return res.status(400).json({ error: 'No pending challenge for this user' });
     }
 
+    const { origin: requestOrigin, rpID: currentRpID } = getWebAuthnConfig(req);
+
     const verification = await verifyRegistrationResponse({
       response,
       expectedChallenge,
-      expectedOrigin: origin,
-      expectedRPID: rpID
+      expectedOrigin: requestOrigin,
+      expectedRPID: currentRpID
     });
 
     if (!verification.verified) {
@@ -363,8 +387,10 @@ async function generateWebauthnAuthentication(req, res) {
       return res.status(400).json({ error: 'No passkey registered for this user' });
     }
 
+    const { rpID: currentRpID } = getWebAuthnConfig(req);
+
     const options = await generateAuthenticationOptions({
-      rpID,
+      rpID: currentRpID,
       userVerification: 'preferred',
       allowCredentials: credsResult.rows.map(cred => ({
         id: cred.credential_id
@@ -404,11 +430,13 @@ async function verifyWebauthnAuthentication(req, res) {
 
     const credential = credResult.rows[0];
 
+    const { origin: requestOrigin, rpID: currentRpID } = getWebAuthnConfig(req);
+
     const verification = await verifyAuthenticationResponse({
       response,
       expectedChallenge,
-      expectedOrigin: origin,
-      expectedRPID: rpID,
+      expectedOrigin: requestOrigin,
+      expectedRPID: currentRpID,
       credential: {
         id: credential.credential_id,
         publicKey: Buffer.from(credential.public_key, 'base64'),
@@ -438,8 +466,8 @@ async function verifyWebauthnAuthentication(req, res) {
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: false, // set true when using HTTPS in production
-      sameSite: 'strict',
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: 60 * 60 * 1000 // 1 hour
     });
 
