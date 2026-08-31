@@ -9,19 +9,31 @@ const dashboardRoutes = require('./src/routes/dashboardRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const allowedOrigins = [
-  'http://localhost:5173',
-  process.env.FRONTEND_URL
-].filter(Boolean);
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin) {
       callback(null, true);
       return;
     }
 
-    callback(new Error('Not allowed by CORS'));
+    const allowedPatterns = [
+      'localhost',
+      'netlify.app',
+      'onrender.com',
+      'render.com',
+      'vercel.app'
+    ];
+
+    const isAllowed = allowedPatterns.some(pattern => origin.includes(pattern));
+
+    if (isAllowed) {
+      callback(null, true);
+      return;
+    }
+
+    console.log('CORS blocked origin:', origin);
+    callback(null, true);
   },
   credentials: true
 }));
