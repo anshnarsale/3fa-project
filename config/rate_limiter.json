@@ -1,0 +1,5 @@
+{
+  "max_attempts": 3,
+  "base_backoff_seconds": 2,
+  "max_backoff_seconds": 60
+}
