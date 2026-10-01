@@ -1,0 +1,5 @@
+{
+  "memory_cost_kb": 65536,
+  "iterations": 3,
+  "parallelism": 4
+}
