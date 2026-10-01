@@ -1,0 +1,5 @@
+{
+  "totp_window_tolerance": 1,
+  "max_failed_attempts": 5,
+  "lockout_seconds": 300
+}
