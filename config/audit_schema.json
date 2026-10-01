@@ -1,0 +1,4 @@
+{
+  "audit_retention_days": 90,
+  "export_format": ["csv", "json"]
+}
